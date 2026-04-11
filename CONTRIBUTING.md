@@ -176,6 +176,24 @@ late-core/tests/
 If you need a `Db`, `Service`, or any I/O — it's an integration test. Move it
 to `tests/`.
 
+## Using AI to contribute
+
+This codebase was largely built with AI assistance and is set up for that
+workflow.
+
+[`CONTEXT.md`](CONTEXT.md) is the main file to feed your LLM. It contains
+architecture, invariants, test strategy, module layout, and current work
+context — everything an agent needs to make good decisions without reading every
+source file first. Think of it as a project brief written for LLMs.
+
+If you use an editor with AI integration (Cursor, Claude Code, Copilot, etc.),
+point it at `CONTEXT.md` and `CONTRIBUTING.md` as initial context. The
+combination covers both the "what" (architecture, constraints) and the "how"
+(workflow, test rules, module patterns).
+
+When your AI-assisted changes alter behavior covered in `CONTEXT.md`, update
+that file too — it's a living document meant to stay in sync with the code.
+
 ## Picking what to work on
 
 ### New to Rust?

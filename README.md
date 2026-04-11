@@ -129,5 +129,6 @@ If you distribute a fork, do not present it as the official `late.sh` service or
 
 ## More Context
 
-- [CONTEXT.md](CONTEXT.md) for architecture, invariants, and internal working context
-- [late-cli/README.md](late-cli/README.md) for CLI-specific usage and behavior
+- [CONTEXT.md](CONTEXT.md) — architecture, invariants, and working context. Written for LLMs — feed this to your AI editor for best results.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — workflow, test rules, module patterns, and AI-assisted development tips.
+- [late-cli/README.md](late-cli/README.md) — CLI-specific usage and behavior.
