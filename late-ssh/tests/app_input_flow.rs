@@ -166,6 +166,48 @@ async fn help_command_renders_chat_feedback_without_persisting_message() {
 }
 
 #[tokio::test]
+async fn list_command_shows_private_room_members_without_persisting_message() {
+    let test_db = new_test_db().await;
+    let viewer = create_test_user(&test_db.db, "list-flow-viewer").await;
+    let target = create_test_user(&test_db.db, "list-flow-target").await;
+    let client = test_db.db.get().await.expect("db client");
+    let general = ChatRoom::ensure_general(&client)
+        .await
+        .expect("ensure general room");
+    ChatRoomMember::join(&client, general.id, viewer.id)
+        .await
+        .expect("join viewer to general");
+
+    let private_room = ChatRoom::get_or_create_room(&client, "side")
+        .await
+        .expect("create room");
+    ChatRoomMember::join(&client, private_room.id, viewer.id)
+        .await
+        .expect("join viewer to side");
+    ChatRoomMember::join(&client, private_room.id, target.id)
+        .await
+        .expect("join target to side");
+
+    let mut app = make_app(test_db.db.clone(), viewer.id, "list-room-members-flow-it");
+
+    app.handle_input(b"2");
+    wait_for_render_contains(&mut app, " Rooms (h/l)").await;
+
+    app.handle_input(b"i/join side\r");
+    wait_for_render_contains(&mut app, "Joined #side").await;
+
+    app.handle_input(b"i/list\r");
+    wait_for_render_contains(&mut app, "#side Members").await;
+    wait_for_render_contains(&mut app, "@list-flow-viewer").await;
+    wait_for_render_contains(&mut app, "@list-flow-target").await;
+
+    let messages = ChatMessage::list_recent(&client, private_room.id, 20)
+        .await
+        .expect("list recent messages");
+    assert!(messages.is_empty(), "expected /list to stay client-side");
+}
+
+#[tokio::test]
 async fn ignore_command_hides_messages_and_persists_across_refresh() {
     let test_db = new_test_db().await;
     let viewer = create_test_user(&test_db.db, "ignore-flow-viewer").await;

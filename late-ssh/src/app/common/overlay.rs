@@ -31,12 +31,12 @@ impl Overlay {
 }
 
 pub fn draw_overlay(frame: &mut Frame, anchor: Rect, overlay: &Overlay) {
-    if anchor.width < 12 || anchor.height < 4 {
+    if anchor.width < 12 || anchor.height < 8 {
         return;
     }
 
     let content_height = overlay.lines.len() as u16 + 2;
-    let height = content_height.min(anchor.height).max(4);
+    let height = content_height.min(anchor.height).max(8);
     let width = anchor.width.saturating_sub(4).max(10);
     let area = Rect::new(
         anchor.x + 2,

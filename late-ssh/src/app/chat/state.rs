@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::app::common::overlay::Overlay;
 
 use crate::app::common::primitives::Banner;
+use crate::state::{ActiveUser, ActiveUsers};
 
 use super::{
     news, notifications,
@@ -40,6 +41,7 @@ pub struct ChatState {
     pub(crate) service: ChatService,
     user_id: Uuid,
     is_admin: bool,
+    active_users: Option<ActiveUsers>,
     snapshot_rx: watch::Receiver<ChatSnapshot>,
     event_rx: tokio::sync::broadcast::Receiver<ChatEvent>,
     pub(crate) rooms: Vec<(ChatRoom, Vec<ChatMessage>)>,
@@ -101,6 +103,7 @@ impl ChatState {
         notification_service: NotificationService,
         user_id: Uuid,
         is_admin: bool,
+        active_users: Option<ActiveUsers>,
         article_service: news::svc::ArticleService,
     ) -> Self {
         let snapshot_rx = service.subscribe_state();
@@ -112,6 +115,7 @@ impl ChatState {
             service,
             user_id,
             is_admin,
+            active_users,
             snapshot_rx,
             event_rx,
             rooms: Vec::new(),
@@ -355,11 +359,15 @@ impl ChatState {
     }
 
     fn selected_room_slug(&self) -> Option<String> {
+        self.selected_room().and_then(|room| room.slug.clone())
+    }
+
+    fn selected_room(&self) -> Option<&ChatRoom> {
         let room_id = self.selected_room_id?;
         self.rooms
             .iter()
             .find(|(room, _)| room.id == room_id)
-            .and_then(|(room, _)| room.slug.clone())
+            .map(|(room, _)| room)
     }
 
     pub fn select_general_room(&mut self) {
@@ -540,12 +548,34 @@ impl ChatState {
         labels
     }
 
+    fn active_user_lines(&self) -> Vec<String> {
+        format_active_user_lines(self.active_users.as_ref())
+    }
+
     pub fn submit_composer(&mut self) -> Option<Banner> {
         let body = self.composer.trim_end().to_string();
 
         if body.trim() == "/help" {
             self.clear_composer_after_submit();
             self.open_overlay("Chat Help", chat_help_lines());
+            return None;
+        }
+
+        if body.trim() == "/active" {
+            self.clear_composer_after_submit();
+            self.open_overlay("Active Users", self.active_user_lines());
+            return None;
+        }
+
+        if body.trim() == "/list" {
+            self.clear_composer_after_submit();
+            let Some(room) = self.selected_room() else {
+                return Some(Banner::error("No room selected"));
+            };
+            if !room_supports_member_list(room) {
+                return Some(Banner::error("/list only works in private rooms"));
+            }
+            self.service.list_room_members_task(self.user_id, room.id);
             return None;
         }
 
@@ -1133,6 +1163,18 @@ impl ChatState {
                 ChatEvent::IgnoreFailed { user_id, message } if self.user_id == user_id => {
                     banner = Some(Banner::error(&message));
                 }
+                ChatEvent::RoomMembersListed {
+                    user_id,
+                    title,
+                    members,
+                } if self.user_id == user_id => {
+                    self.open_overlay(&title, members);
+                }
+                ChatEvent::RoomMembersListFailed { user_id, message }
+                    if self.user_id == user_id =>
+                {
+                    banner = Some(Banner::error(&message));
+                }
                 _ => {}
             }
         }
@@ -1285,6 +1327,8 @@ fn chat_help_lines() -> Vec<String> {
         "  /create #room      create a room and add everyone",
         "  /leave             leave the current room",
         "  /dm @user          open a direct message",
+        "  /active            list active users",
+        "  /list              list users in this private room",
         "  /ignore [@user]    ignore a user, or list ignored users",
         "  /unignore [@user]  remove a user from your ignore list",
         "  /help              show this help",
@@ -1391,6 +1435,34 @@ fn parse_delete_room_command(input: &str) -> Option<&str> {
         return None;
     }
     Some(slug)
+}
+
+fn room_supports_member_list(room: &ChatRoom) -> bool {
+    room.kind != "dm" && !room.auto_join
+}
+
+fn format_active_user_lines(active_users: Option<&ActiveUsers>) -> Vec<String> {
+    let Some(active_users) = active_users else {
+        return vec!["Active user list unavailable".to_string()];
+    };
+
+    let guard = active_users.lock().expect("active users lock poisoned");
+    if guard.is_empty() {
+        return vec!["No active users".to_string()];
+    }
+
+    let mut users: Vec<&ActiveUser> = guard.values().collect();
+    users.sort_by_key(|user| user.username.to_ascii_lowercase());
+    users
+        .into_iter()
+        .map(|user| {
+            if user.connection_count > 1 {
+                format!("@{} ({} sessions)", user.username, user.connection_count)
+            } else {
+                format!("@{}", user.username)
+            }
+        })
+        .collect()
 }
 
 fn wrapped_index(current: isize, delta: isize, len: usize) -> usize {
@@ -1591,6 +1663,72 @@ mod tests {
     #[test]
     fn parse_delete_room_not_command() {
         assert_eq!(parse_delete_room_command("hello"), None);
+    }
+
+    #[test]
+    fn room_supports_member_list_only_for_non_auto_join_non_dm_rooms() {
+        let private_room = ChatRoom {
+            id: Uuid::now_v7(),
+            created: chrono::Utc::now(),
+            updated: chrono::Utc::now(),
+            kind: "topic".to_string(),
+            visibility: "public".to_string(),
+            auto_join: false,
+            permanent: false,
+            slug: Some("side".to_string()),
+            language_code: None,
+            dm_user_a: None,
+            dm_user_b: None,
+        };
+        assert!(room_supports_member_list(&private_room));
+
+        let public_room = ChatRoom {
+            auto_join: true,
+            ..private_room.clone()
+        };
+        assert!(!room_supports_member_list(&public_room));
+
+        let dm_room = ChatRoom {
+            kind: "dm".to_string(),
+            visibility: "dm".to_string(),
+            ..private_room
+        };
+        assert!(!room_supports_member_list(&dm_room));
+    }
+
+    #[test]
+    fn format_active_user_lines_sorts_and_shows_session_counts() {
+        let active_users = std::sync::Arc::new(std::sync::Mutex::new(HashMap::from([
+            (
+                Uuid::now_v7(),
+                ActiveUser {
+                    username: "zoe".to_string(),
+                    connection_count: 2,
+                    last_login_at: std::time::Instant::now(),
+                },
+            ),
+            (
+                Uuid::now_v7(),
+                ActiveUser {
+                    username: "alice".to_string(),
+                    connection_count: 1,
+                    last_login_at: std::time::Instant::now(),
+                },
+            ),
+        ])));
+
+        assert_eq!(
+            format_active_user_lines(Some(&active_users)),
+            vec!["@alice".to_string(), "@zoe (2 sessions)".to_string()]
+        );
+    }
+
+    #[test]
+    fn format_active_user_lines_handles_missing_registry() {
+        assert_eq!(
+            format_active_user_lines(None),
+            vec!["Active user list unavailable".to_string()]
+        );
     }
 
     // --- adjacent_message_id (delete-and-advance) ---

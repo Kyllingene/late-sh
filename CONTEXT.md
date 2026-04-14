@@ -3,7 +3,7 @@
 ## Metadata
 - Domain: late.sh - Terminal Clubhouse for Developers
 - Primary audience: LLM agents working on this codebase, human contributors
-- Last updated: 2026-04-13 (Blackjack moved to service-owned shared snapshot/event model; admin-gated while unfinished)
+- Last updated: 2026-04-15 (/active and /list chat composer commands added; /list is for non-auto-join "private" rooms)
 - Status: Active
 - Stability note: Sections marked `[STABLE]` should change rarely. Sections marked `[VOLATILE]` are expected to change often.
 
@@ -708,6 +708,13 @@ Currently the SSH app assumes a single process. These in-memory structures would
 5. Display path: `ChatState::ignore_list_lines()` resolves stored UUIDs back to `@username` via the snapshot's full `usernames` map (`User::list_all_username_map`), falling back to `@<unknown:…>` when a user isn't in the cache.
 6. Failure: `IgnoreFailed { user_id, message }` for self-target, unknown username, already-ignored, or not-currently-ignored — surfaced as a red banner.
 
+**Chat roster/help overlay flow:**
+1. Trigger: User submits `/help`, `/active`, or `/list` in the composer
+2. Processing: `ChatState::submit_composer()` intercepts these before any message send. `/help` opens a static overlay, `/active` snapshots the shared in-memory `active_users` registry, and `/list` spawns `ChatService::list_room_members_task` for the selected non-auto-join room.
+3. Side effects: `/active` renders usernames in an overlay immediately and annotates repeated SSH sessions as `(<n> sessions)`. `/list` resolves `chat_room_members` to profile usernames and opens a room-member overlay when the async event arrives.
+4. Guardrail: `/list` is only allowed for the product's "private" rooms, defined in the TUI as `auto_join = false` and `kind != 'dm'`; it is rejected in `general`, permanent/public auto-join rooms, and DMs.
+5. Failure: `/list` on the wrong room shows a red banner; DB/service errors surface via `RoomMembersListFailed`.
+
 **Chat reply flow:**
 1. Trigger: User selects a message (`j`/`k`) and presses `r`
 2. Processing: `ChatState::begin_reply_to_selected()` captures the target author plus a short preview, enters compose mode, and shows a reply-specific composer title
@@ -738,7 +745,7 @@ Currently the SSH app assumes a single process. These in-memory structures would
 - **Message ordering:** Full history is `ORDER BY created DESC, id DESC` (newest first), delta sync is `(created, id) > cursor ASC` - mixing these up breaks chat display. Chat rendering reverses messages to oldest-first for row-based display, with newest at the bottom.
 - **Chat message navigation is selection-first:** `selected_message_id` is the source of truth for dashboard/general chat and the full chat screen. Mouse wheel, arrows, paging, and `j/k` all move selection; when no message is selected, the viewport falls back to newest-at-bottom.
 - **Chat wrapping is word-aware:** Shared wrapping prefers breaking on whitespace for regular messages, reply quote lines, news-card text, and the composer. Hard splits are only valid for single words longer than the available width.
-- **Chat room list order is UI-defined:** The chat sidebar order is hardcoded as `core` (`general`, `announcements`, `suggestions`, any other permanent rooms, then synthetic `news`) → `public` → `private` → `dm`, with divider rows rendered in the UI. The synthetic `news` row now carries its own unread badge sourced from `article_feed_reads`, not `chat_room_members`.
+- **Chat room list order is UI-defined:** The chat sidebar order is hardcoded as `core` (`general`, `announcements`, `suggestions`, any other permanent rooms, then synthetic `news`) → `public` → `private` → `dm`, with divider rows rendered in the UI. Here, "private" is a UI/product label for non-auto-join rooms (`auto_join = false`), not necessarily DB `visibility = 'private'`. The synthetic `news` row now carries its own unread badge sourced from `article_feed_reads`, not `chat_room_members`.
 - **Transcript render cost is cache-sensitive:** `late-ssh` fetches up to 1000 messages for the selected room and up to 1000 for general. The chat UI therefore caches wrapped transcript rows for the dashboard general card and the active room; invalidation must track width, message content/order, usernames, badges, and bonsai glyphs.
 - **Composer render cost is cache-sensitive:** The chat composer caches wrapped `ComposerRow`s in `ChatState`; any change to composer text or width must invalidate that cache before render/cursor-up/down.
 - **Icon picker is chat-composer-only:** `Ctrl+]` (byte `0x1D`) opens `app::icon_picker` as a modal overlay, lazy-loads the catalog on first open (two sections each for Emoji and Nerd Font — no Unicode tab, no `unicode_names2` dep), and auto-starts `ChatState::start_composing` if the user isn't already composing. Selected icons are only ever pushed into `app.chat.composer`; Profile and news composers are intentionally not targets. The picker intercepts all input via an early return in `handle_parsed_input`, so while it is open nothing else on screen receives keys.
@@ -882,7 +889,7 @@ Use narrower crate-specific `cargo test` / `cargo nextest run` commands ad hoc w
 | Screen | Key | Status | Description |
 |--------|-----|--------|-------------|
 | **Dashboard** | 1 | Active | Stream URL + now playing + voting + dashboard chat (The Lounge Hub) |
-| **Chat** | 2 | Active | Full room-list chat screen (`/dm @user`, `/join #room`, `/create #room`, `/leave`, `/ignore [@user]`, `/unignore [@user]`, `/help`) with grouped room sections and a synthetic `news` entry in the room list |
+| **Chat** | 2 | Active | Full room-list chat screen (`/dm @user`, `/join #room`, `/create #room`, `/leave`, `/active`, `/list`, `/ignore [@user]`, `/unignore [@user]`, `/help`) with grouped room sections and a synthetic `news` entry in the room list |
 | **Games** | 3 | Active | The Arcade Lobby + leaderboard sidebar (champions, streaks, all-time high scores, chip leaders, info): persisted high-score games (`2048`, `Tetris`), daily games (`Sudoku`, `Nonograms`, `Minesweeper`, `Solitaire`), and admin-gated shared-table Blackjack. Game list auto-scrolls (top-third anchor); ASCII header hides on small screens |
 | **Profile** | 4 | Active | User profile: username, Notifications (OSC 777/9 desktop notifications — opt-in checkboxes for DMs / `@mentions` / game events, plus a shared cooldown; no tmux support), Your Stats (streak + badge, chips, high scores), @bot/@graybeard info, chat colors |
 
@@ -974,6 +981,8 @@ Toast notification is hidden by default (0 rows). When active, it appears as a 3
 | `j` / `k` | Chat | Move message selection newer/older |
 | `r` | Chat | Reply to selected message |
 | `/help` | Chat composer | Open scrollable chat help overlay (commands + all chat keys) |
+| `/active` | Chat composer | List active SSH users from the in-memory session registry |
+| `/list` | Chat composer | List users in the selected non-auto-join ("private") room |
 | `/ignore [@user]` | Chat composer | Mute a user, or list muted users when no arg |
 | `/unignore [@user]` | Chat composer | Remove a user from your ignore list |
 | `j` / `k` / arrows | Chat overlay (`/help`, ignore list) | Scroll overlay |

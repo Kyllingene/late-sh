@@ -123,7 +123,16 @@ pub enum ChatEvent {
         ignored_user_ids: Vec<Uuid>,
         message: String,
     },
+    RoomMembersListed {
+        user_id: Uuid,
+        title: String,
+        members: Vec<String>,
+    },
     IgnoreFailed {
+        user_id: Uuid,
+        message: String,
+    },
+    RoomMembersListFailed {
         user_id: Uuid,
         message: String,
     },
@@ -518,6 +527,66 @@ impl ChatService {
         Ok(room.id)
     }
 
+    pub fn list_room_members_task(&self, user_id: Uuid, room_id: Uuid) {
+        let service = self.clone();
+        let span = info_span!(
+            "chat.list_room_members_task",
+            user_id = %user_id,
+            room_id = %room_id
+        );
+        tokio::spawn(
+            async move {
+                let event = match service.list_room_members(user_id, room_id).await {
+                    Ok((title, members)) => ChatEvent::RoomMembersListed {
+                        user_id,
+                        title,
+                        members,
+                    },
+                    Err(e) => ChatEvent::RoomMembersListFailed {
+                        user_id,
+                        message: e.to_string(),
+                    },
+                };
+                let _ = service.evt_tx.send(event);
+            }
+            .instrument(span),
+        );
+    }
+
+    async fn list_room_members(
+        &self,
+        user_id: Uuid,
+        room_id: Uuid,
+    ) -> Result<(String, Vec<String>)> {
+        let client = &self.db.get().await?;
+        let room = ChatRoom::get(client, room_id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Room not found"))?;
+        let is_member = ChatRoomMember::is_member(client, room_id, user_id).await?;
+        if !is_member {
+            anyhow::bail!("You are not a member of this room");
+        }
+
+        let user_ids = ChatRoomMember::list_user_ids(client, room_id).await?;
+        let usernames = User::list_usernames_by_ids(client, &user_ids).await?;
+        let members = user_ids
+            .into_iter()
+            .map(|id| {
+                usernames
+                    .get(&id)
+                    .map(|username| format!("@{username}"))
+                    .unwrap_or_else(|| format!("@<unknown:{}>", short_user_id(id)))
+            })
+            .collect();
+        let title = room
+            .slug
+            .as_deref()
+            .map(|slug| format!("#{slug} Members"))
+            .unwrap_or_else(|| "Room Members".to_string());
+
+        Ok((title, members))
+    }
+
     pub fn ignore_user_task(&self, user_id: Uuid, target_username: String) {
         let service = self.clone();
         let span =
@@ -826,4 +895,9 @@ impl ChatService {
         tracing::info!(message_id = %message_id, "message deleted");
         Ok(msg.room_id)
     }
+}
+
+fn short_user_id(user_id: Uuid) -> String {
+    let id = user_id.to_string();
+    id[..id.len().min(8)].to_string()
 }

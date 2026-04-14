@@ -336,6 +336,8 @@ impl App {
             )
         };
 
+        let active_users = config.active_users.clone();
+
         Ok(Self {
             running: true,
             size: (cols, rows),
@@ -363,7 +365,7 @@ impl App {
             session_token: config.session_token,
             session_rx: config.session_rx,
             now_playing_rx: config.now_playing_rx,
-            active_users: config.active_users,
+            active_users: active_users.clone(),
             activity_feed_rx: config.activity_feed_rx,
             activity: VecDeque::new(),
             user_id: config.user_id,
@@ -374,6 +376,7 @@ impl App {
                 config.notification_service,
                 config.user_id,
                 config.is_admin,
+                active_users.clone(),
                 config.article_service.clone(),
             ),
             dashboard_chat_rows_cache: chat::ui::ChatRowsCache::default(),
