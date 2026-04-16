@@ -47,6 +47,7 @@ fn desktop_notification_bytes(title: &str, body: &str) -> Vec<u8> {
 }
 
 struct DrawContext<'a> {
+    connect_url: &'a str,
     dashboard_view: dashboard::ui::DashboardRenderInput<'a>,
     chat_view: chat::ui::ChatRenderInput<'a>,
     profile_view: profile::ui::ProfileRenderInput<'a>,
@@ -110,7 +111,6 @@ impl App {
         let chat_badges = self.leaderboard.badges();
         let bonsai_glyphs = self.chat.bonsai_glyphs();
         let dashboard_view = dashboard::ui::DashboardRenderInput {
-            connect_url: self.connect_url.as_str(),
             now_playing: now_playing_text.as_deref(),
             vote_counts: &vote_snapshot.counts,
             current_genre: vote_snapshot.current_genre,
@@ -215,6 +215,7 @@ impl App {
                     area,
                     screen,
                     DrawContext {
+                        connect_url: self.connect_url.as_str(),
                         dashboard_view,
                         chat_view,
                         profile_view,
@@ -372,7 +373,7 @@ impl App {
                 let hint_area = Rect::new(area.x, hint_y, area.width, 1);
                 let hint = ratatui::text::Line::from(ratatui::text::Span::styled(
                     ctx.splash_hint,
-                    Style::default().fg(theme::BORDER),
+                    Style::default().fg(theme::TEXT_DIM),
                 ));
                 let hint_paragraph = ratatui::widgets::Paragraph::new(hint).centered();
                 frame.render_widget(hint_paragraph, hint_area);
@@ -392,7 +393,7 @@ impl App {
             Layout::horizontal([Constraint::Fill(1), Constraint::Length(24)]).split(inner);
         let content_area = main_layout[0];
         let sidebar_area = main_layout[1];
-        let connect_url = ctx.dashboard_view.connect_url;
+        let connect_url = ctx.connect_url;
 
         match screen {
             Screen::Dashboard => {

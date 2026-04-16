@@ -28,7 +28,7 @@ pub fn draw_qr_overlay(frame: &mut Frame, area: Rect, url: &str, title: &str, su
         .with_style(Style::default().fg(Color::Black).bg(Color::White));
     let qr_size = qr_widget.size(area);
 
-    let header_h = 4u16;
+    let header_h = 5u16;
     let footer_h = 3u16;
     let content_h = header_h + qr_size.height + footer_h;
     let content_w = qr_size.width.max(28);
@@ -65,6 +65,7 @@ pub fn draw_qr_overlay(frame: &mut Frame, area: Rect, url: &str, title: &str, su
         .areas(qr_area);
 
     let dim = Style::default().fg(theme::TEXT_DIM);
+    let amber = Style::default().fg(theme::AMBER);
     let green = Style::default().fg(theme::SUCCESS);
 
     frame.render_widget(
@@ -72,6 +73,7 @@ pub fn draw_qr_overlay(frame: &mut Frame, area: Rect, url: &str, title: &str, su
             Line::from(""),
             Line::from(Span::styled(format!("  {subtitle}"), dim)),
             Line::from(Span::styled("  URL copied to clipboard", green)),
+            Line::from(Span::styled(format!("  {url}"), amber)),
             Line::from(""),
         ])
         .centered(),

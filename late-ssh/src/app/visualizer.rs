@@ -90,19 +90,22 @@ impl Visualizer {
             let key = Style::default().fg(theme::AMBER);
             let lines = vec![
                 Line::from(""),
-                Line::from(""),
                 Line::from(Span::styled("No audio paired", dim)),
                 Line::from(""),
                 Line::from(vec![
-                    Span::styled("Install CLI ", dim),
-                    Span::styled("(Enter)", key),
+                    Span::styled("Type ", dim),
+                    Span::styled("/music", key),
+                    Span::styled(" in chat", dim),
                 ]),
+                Line::from(""),
                 Line::from(vec![
-                    Span::styled("or web      ", dim),
-                    Span::styled("(p)", key),
+                    Span::styled("Enter", key),
+                    Span::styled(" cli  ", dim),
+                    Span::styled("p", key),
+                    Span::styled(" web", dim),
                 ]),
             ];
-            frame.render_widget(Paragraph::new(lines).centered(), inner);
+            frame.render_widget(Paragraph::new(lines), inner);
             return;
         }
 

@@ -39,7 +39,7 @@ pub fn draw_sidebar(frame: &mut Frame, area: Rect, props: &SidebarProps<'_>) {
     let layout = Layout::vertical([
         Constraint::Length(3),  // screen card
         Constraint::Length(10), // visualizer
-        Constraint::Length(8),  // now playing
+        Constraint::Length(7),  // now playing
         Constraint::Fill(1),    // activity (shrinks on small screens)
         Constraint::Length(16), // bonsai tree (12 max art + 2 status + 2 border)
     ])
@@ -164,7 +164,7 @@ fn draw_now_playing(
                 Span::styled("m", Style::default().fg(theme::AMBER_DIM)),
                 Span::styled(" mute", Style::default().fg(theme::TEXT_FAINT)),
             ]));
-            lines.extend(paired_client_lines(paired_client));
+            lines.push(paired_client_line(paired_client));
 
             lines
         }
@@ -176,7 +176,7 @@ fn draw_now_playing(
                 )),
                 Line::raw(""),
             ];
-            lines.extend(paired_client_lines(paired_client));
+            lines.push(paired_client_line(paired_client));
             lines
         }
     };
@@ -184,42 +184,32 @@ fn draw_now_playing(
     frame.render_widget(Paragraph::new(content), inner);
 }
 
-fn paired_client_lines(paired_client: Option<&ClientAudioState>) -> Vec<Line<'static>> {
+fn paired_client_line(paired_client: Option<&ClientAudioState>) -> Line<'static> {
     match paired_client {
-        Some(state) => vec![
-            Line::from(vec![
-                Span::styled("Pair ", Style::default().fg(theme::TEXT_DIM)),
-                Span::styled(
-                    state.client_kind.label(),
-                    Style::default().fg(theme::TEXT_BRIGHT),
-                ),
-            ]),
-            Line::from(vec![
-                Span::styled(
-                    if state.muted { "Muted" } else { "Live" },
-                    Style::default().fg(if state.muted {
-                        theme::AMBER
-                    } else {
-                        theme::TEXT_BRIGHT
-                    }),
-                ),
-                Span::styled("  ", Style::default().fg(theme::TEXT_DIM)),
-                Span::styled(
-                    format!("{}%", state.volume_percent),
-                    Style::default().fg(theme::AMBER_DIM),
-                ),
-            ]),
-        ],
-        None => vec![
-            Line::from(Span::styled(
-                "No pair",
-                Style::default().fg(theme::TEXT_FAINT),
-            )),
-            Line::from(Span::styled(
-                "Volume --",
-                Style::default().fg(theme::TEXT_FAINT),
-            )),
-        ],
+        Some(state) => Line::from(vec![
+            Span::styled(
+                state.client_kind.label(),
+                Style::default().fg(theme::TEXT_BRIGHT),
+            ),
+            Span::styled("  ", Style::default()),
+            Span::styled(
+                if state.muted { "Muted" } else { "Live" },
+                Style::default().fg(if state.muted {
+                    theme::AMBER
+                } else {
+                    theme::TEXT_BRIGHT
+                }),
+            ),
+            Span::styled("  ", Style::default()),
+            Span::styled(
+                format!("{}%", state.volume_percent),
+                Style::default().fg(theme::AMBER_DIM),
+            ),
+        ]),
+        None => Line::from(Span::styled(
+            "No pair",
+            Style::default().fg(theme::TEXT_FAINT),
+        )),
     }
 }
 
