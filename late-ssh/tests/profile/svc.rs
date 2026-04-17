@@ -59,6 +59,7 @@ async fn edit_profile_emits_saved_event_and_refreshes_snapshot() {
             notify_kinds: Vec::new(),
             notify_bell: false,
             notify_cooldown_mins: 0,
+            enable_background_color: false,
         },
     );
 
@@ -109,6 +110,7 @@ async fn edit_profile_normalizes_username_before_persisting() {
             notify_kinds: Vec::new(),
             notify_bell: false,
             notify_cooldown_mins: 0,
+            enable_background_color: false,
         },
     );
 
@@ -154,6 +156,7 @@ async fn edit_profile_preserves_unrelated_settings_keys() {
             notify_kinds: vec!["dms".to_string()],
             notify_bell: false,
             notify_cooldown_mins: 5,
+            enable_background_color: false,
         },
     );
 
