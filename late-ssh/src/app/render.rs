@@ -197,6 +197,7 @@ impl App {
             twenty_forty_eight_best: self.twenty_forty_eight_state.best_score,
             cursor_visible: self.profile_state.cursor_visible(),
             notify_kinds: &self.profile_state.profile().notify_kinds,
+            notify_bell: self.profile_state.profile().notify_bell,
             notify_cooldown_mins: self.profile_state.profile().notify_cooldown_mins,
             settings_row: self.profile_state.settings_row,
         };
@@ -285,7 +286,10 @@ impl App {
                     body = notif.body,
                     "emitting desktop notification"
                 );
-                let payload = desktop_notification_bytes(&notif.title, &notif.body);
+                let mut payload = desktop_notification_bytes(&notif.title, &notif.body);
+                if profile.notify_bell {
+                    payload.push(0x07);
+                }
                 self.pending_terminal_commands.push(payload);
                 self.last_notify_at = Some(std::time::Instant::now());
             } else {

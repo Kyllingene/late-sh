@@ -591,6 +591,7 @@ impl GhostService {
                     username: username.to_string(),
                     enable_ghost: profile.enable_ghost,
                     notify_kinds: profile.notify_kinds.clone(),
+                    notify_bell: profile.notify_bell,
                     notify_cooldown_mins: profile.notify_cooldown_mins,
                 },
             )

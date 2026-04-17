@@ -23,6 +23,7 @@ pub struct ProfileRenderInput<'a> {
     pub twenty_forty_eight_best: i32,
     pub cursor_visible: bool,
     pub notify_kinds: &'a [String],
+    pub notify_bell: bool,
     pub notify_cooldown_mins: i32,
     pub settings_row: usize,
 }
@@ -192,8 +193,37 @@ fn build_lines<'a>(view: &ProfileRenderInput<'a>, width: u16) -> Vec<Line<'a>> {
         ]));
     }
 
+    // ANSI bell notification checkbox.
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "  Send a terminal bell with your notifications.",
+        dim,
+    )));
+
+    let enabled = view.notify_bell;
+    let bell_row = kinds.len();
+    let row_style = if view.settings_row == bell_row {
+        selected_label
+    } else {
+        dim
+    };
+    let label_text = " Bell";
+    let pad = " ".repeat(label_pad.saturating_sub(label_text.len() + 1));
+    let checkbox = if enabled { "[x]" } else { "[ ]" };
+    let checkbox_style = if enabled {
+        Style::default().fg(theme::AMBER)
+    } else {
+        Style::default().fg(theme::TEXT_DIM)
+    };
+    lines.push(Line::from(vec![
+        Span::styled(" \u{2022}", nav_style),
+        Span::styled(label_text, row_style),
+        Span::styled(pad, dim),
+        Span::styled(checkbox, checkbox_style),
+    ]));
+
     // Cooldown row (last).
-    let cooldown_row = kinds.len();
+    let cooldown_row = bell_row + 1;
     let cooldown_row_style = if view.settings_row == cooldown_row {
         selected_label
     } else {
@@ -443,6 +473,7 @@ mod tests {
             twenty_forty_eight_best: 8192,
             cursor_visible: false,
             notify_kinds: &kinds,
+            notify_bell: false,
             notify_cooldown_mins: 0,
             settings_row: 0,
         };

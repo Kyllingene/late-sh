@@ -62,6 +62,7 @@ async fn edit_profile_emits_saved_event_and_refreshes_snapshot() {
             username: "night-owl".to_string(),
             enable_ghost: true,
             notify_kinds: Vec::new(),
+            notify_bell: false,
             notify_cooldown_mins: 0,
         },
     );
@@ -117,6 +118,7 @@ async fn edit_profile_does_not_modify_another_users_profile() {
             username: "hijack".to_string(),
             enable_ghost: true,
             notify_kinds: Vec::new(),
+            notify_bell: false,
             notify_cooldown_mins: 0,
         },
     );

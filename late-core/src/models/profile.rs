@@ -12,6 +12,7 @@ crate::user_scoped_model! {
         pub username: String,
         pub enable_ghost: bool,
         pub notify_kinds: Vec<String>,
+        pub notify_bell: bool,
         pub notify_cooldown_mins: i32,
     }
 }
@@ -26,6 +27,7 @@ impl Default for Profile {
             username: String::new(),
             enable_ghost: true,
             notify_kinds: Vec::new(),
+            notify_bell: false,
             notify_cooldown_mins: 0,
         }
     }

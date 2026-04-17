@@ -136,8 +136,12 @@ impl ProfileState {
     /// Notification kinds the user can toggle on the profile screen, in display order.
     pub(crate) const NOTIFY_KINDS: &'static [&'static str] = &["dms", "mentions", "game_events"];
 
-    fn cooldown_row_index() -> usize {
+    fn notify_bell_row() -> usize {
         Self::NOTIFY_KINDS.len()
+    }
+
+    fn cooldown_row_index() -> usize {
+        Self::notify_bell_row() + 1
     }
 
     pub fn move_settings_row(&mut self, delta: isize) {
@@ -150,6 +154,9 @@ impl ProfileState {
         if self.settings_row == Self::cooldown_row_index() {
             self.profile.notify_cooldown_mins =
                 cycle_cooldown_value(self.profile.notify_cooldown_mins, forward);
+            self.save_profile();
+        } else if self.settings_row == Self::notify_bell_row() {
+            self.profile.notify_bell ^= true;
             self.save_profile();
         } else if let Some(kind) = Self::NOTIFY_KINDS.get(self.settings_row) {
             toggle_notify_kind(&mut self.profile.notify_kinds, kind);
@@ -166,6 +173,7 @@ impl ProfileState {
                 username: self.profile.username.clone(),
                 enable_ghost: self.profile.enable_ghost,
                 notify_kinds: self.profile.notify_kinds.clone(),
+                notify_bell: self.profile.notify_bell,
                 notify_cooldown_mins: self.profile.notify_cooldown_mins,
             },
         );
