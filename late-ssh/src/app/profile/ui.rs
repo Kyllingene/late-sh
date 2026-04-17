@@ -236,6 +236,11 @@ fn build_lines<'a>(view: &ProfileRenderInput<'a>, width: u16) -> Vec<Line<'a>> {
     } else {
         format!("{}", view.notify_cooldown_mins)
     };
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "  Set a cooldown to avoid notification spam.",
+        dim,
+    )));
     lines.push(Line::from(vec![
         Span::styled(" \u{25bc}", nav_style),
         Span::styled(cooldown_label_text, cooldown_row_style),
