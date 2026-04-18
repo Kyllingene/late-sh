@@ -207,62 +207,25 @@ fn build_lines<'a>(view: &ProfileRenderInput<'a>, width: u16) -> Vec<Line<'a>> {
     for (row_idx, (kind, label)) in kinds.iter().enumerate() {
         let enabled = view.notify_kinds.iter().any(|k| k == *kind);
         let settings_row = row_idx + 2; // rows 0=theme, 1=background_color, 2..=notify
-        let row_style = if view.settings_row == settings_row {
-            selected_label
-        } else {
-            dim
-        };
-        let row_marker = if view.settings_row == settings_row {
-            "\u{203a}"
-        } else {
-            " "
-        };
-        let label_text = format!(" {label}");
-        let pad = " ".repeat(label_pad.saturating_sub(label_text.len() + 1));
-        let checkbox = if enabled { "[x]" } else { "[ ]" };
-        let checkbox_style = if enabled {
-            Style::default().fg(theme::AMBER())
-        } else {
-            Style::default().fg(theme::TEXT_DIM())
-        };
-        lines.push(Line::from(vec![
-            Span::styled(format!(" {row_marker}"), nav_style),
-            Span::styled(label_text, row_style),
-            Span::styled(pad, dim),
-            Span::styled(checkbox, checkbox_style),
-        ]));
+        lines.push(checkbox_row(
+            label,
+            enabled,
+            view.settings_row == settings_row,
+            label_pad,
+        ));
     }
 
     // Terminal bell notification checkbox.
-    let enabled = view.notify_bell;
-    let bell_row = kinds.len() + 2; // 0=theme, 1=background_color, 2..5=notify, 6=cooldown
-    let row_style = if view.settings_row == bell_row {
-        selected_label
-    } else {
-        dim
-    };
-    let row_marker = if view.settings_row == bell_row {
-        "\u{203a}"
-    } else {
-        " "
-    };
-    let label_text = " Bell";
-    let pad = " ".repeat(label_pad.saturating_sub(label_text.len() + 1));
-    let checkbox = if enabled { "[x]" } else { "[ ]" };
-    let checkbox_style = if enabled {
-        Style::default().fg(theme::AMBER())
-    } else {
-        Style::default().fg(theme::TEXT_DIM())
-    };
-    lines.push(Line::from(vec![
-        Span::styled(format!(" {row_marker}"), nav_style),
-        Span::styled(label_text, row_style),
-        Span::styled(pad, dim),
-        Span::styled(checkbox, checkbox_style),
-    ]));
+    let bell_row = kinds.len() + 2; // 0=theme, 1=background_color, 2..4=notify, 5=bell
+    lines.push(checkbox_row(
+        "Bell",
+        view.notify_bell,
+        view.settings_row == bell_row,
+        label_pad,
+    ));
 
     // Cooldown row (last).
-    let cooldown_row = kinds.len() + 3; // 0=theme, 1=background_color, 2..5=notify, 6=cooldown
+    let cooldown_row = kinds.len() + 3; // 0=theme, 1=background_color, 2..4=notify, 5=bell, 6=cooldown
     let cooldown_row_style = if view.settings_row == cooldown_row {
         selected_label
     } else {
@@ -515,6 +478,31 @@ fn build_lines<'a>(view: &ProfileRenderInput<'a>, width: u16) -> Vec<Line<'a>> {
     lines.push(Line::from(""));
 
     lines
+}
+
+fn checkbox_row(label: &str, enabled: bool, selected: bool, label_pad: usize) -> Line<'static> {
+    let nav_style = Style::default().fg(theme::TEXT_FAINT());
+    let dim = Style::default().fg(theme::TEXT_DIM());
+    let row_style = if selected {
+        Style::default().fg(theme::TEXT())
+    } else {
+        dim
+    };
+    let marker = if selected { "\u{203a}" } else { " " };
+    let label_text = format!(" {label}");
+    let pad = " ".repeat(label_pad.saturating_sub(label_text.len() + 1));
+    let checkbox = if enabled { "[x]" } else { "[ ]" };
+    let checkbox_style = if enabled {
+        Style::default().fg(theme::AMBER())
+    } else {
+        Style::default().fg(theme::TEXT_DIM())
+    };
+    Line::from(vec![
+        Span::styled(format!(" {marker}"), nav_style),
+        Span::styled(label_text, row_style),
+        Span::styled(pad, dim),
+        Span::styled(checkbox, checkbox_style),
+    ])
 }
 
 fn section_heading(title: &str) -> Line<'static> {
