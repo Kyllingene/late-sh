@@ -584,7 +584,7 @@ fn draw_help_overlay(
         Line::from(""),
         section("Global"),
         divider(col_w),
-        key("Tab", "next screen"),
+        key("Tab / S-Tab", "next / prev screen"),
         key("1-4", "jump to screen"),
         key("m", "mute paired"),
         key("+ / -", "volume"),
